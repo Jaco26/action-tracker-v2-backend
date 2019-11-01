@@ -8,5 +8,6 @@ class RevokedToken(db.Model):
     db.session.add(self)
     db.session.commit()
 
+  @classmethod
   def is_revoked(cls, jti):
     return bool(cls.query.get(jti))

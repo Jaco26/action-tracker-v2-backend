@@ -1,16 +1,19 @@
 from datetime import timedelta
 from flask import Blueprint, jsonify, make_response, request, abort
 from passlib.hash import pbkdf2_sha256
-from app.database.models import RegisteredUser, UserProfile
+from app.database.models import RegisteredUser, UserProfile, RevokedToken
 from app.util.validate import should_look_like
-from app.util.jwt_manager import create_access_token, decode_token
+from app.util.jwt_manager import (
+  create_access_token, decode_token, get_raw_jwt, 
+  jwt_required, get_jti
+)
 
 
 auth_bp = Blueprint('auth_bp', __name__)
 
 def make_token(identity, expires_hours, user_profile):
   return create_access_token(identity, 
-                            expires_delta=timedelta(expires_hours),
+                            expires_delta=timedelta(hours=expires_hours),
                             user_claims={
                               'permission': user_profile.role.permission,
                             })
@@ -79,3 +82,19 @@ def login():
     return res, 201
 
   abort(403)
+
+
+@auth_bp.route('/logout', methods=['POST'])
+@jwt_required
+def logout():
+  token = get_raw_jwt()
+
+  revoked_token = RevokedToken(jti=token.get('jti'))
+
+  revoked_token.save_to_db()
+
+  res = make_response()
+
+  res.set_cookie('id_token', '')
+
+  return res, 200
